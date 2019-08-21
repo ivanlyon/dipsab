@@ -1,0 +1,501 @@
+'''
+dipsab is an acronym for Directory Images Padded, Stacked And Bordered.
+'''
+
+import copy
+import json
+import os
+import sys
+import tkinter
+import tkinter.ttk as ttk
+from tkinter import filedialog, simpledialog, messagebox, colorchooser
+from PIL import Image, ImageTk
+import dirim
+
+DISPLAY_NAME = "dipsab"
+DEFAULT_SECTION = {'directory':'', 'columns':0, 'padding':10}
+DEFAULT_PROPS = {}
+DEFAULT_PROPS['bgcolor'] = '#000000'
+DEFAULT_PROPS['bordersize'] = 40
+DEFAULT_PROPS['hsize'] = 1920
+DEFAULT_PROPS['vsize'] = 1080
+DEFAULT_PROPS['header'] = 0
+DEFAULT_PROPS['footer'] = 0
+DEFAULT_PROPS['exportpath'] = ''
+
+def aspect_rationate(available, candidate):
+    "Compute height and width retainining aspect ratio constrained by available space."
+
+    if candidate[0] > available[0] or candidate[1] > available[1]:
+        factor = min(available[0] / candidate[0], available[1] / candidate[1])
+        result = (int(factor * candidate[0]), int(factor * candidate[1]))
+    else:
+        result = candidate
+
+    return result
+
+class PropertiesDialog(simpledialog.Dialog):
+    "Modal dialog of each layer's content and appearance attributes."
+
+    def __init__(self, master, config, *args, **kwargs):
+        self.exportpath = config['exportpath']
+        self.exportpath_var = tkinter.StringVar()
+        self.exportpath_var.set(self.exportpath)
+
+        self.bgcolor = config['bgcolor']
+        self.bgcolor_var = tkinter.StringVar()
+        self.bgcolor_var.set(self.bgcolor)
+
+        self.bordersize = config['bordersize']
+        self.bordersize_var = tkinter.IntVar()
+        self.bordersize_var.set(self.bordersize)
+
+        self.hsize = config['hsize']
+        self.hsize_var = tkinter.IntVar()
+        self.hsize_var.set(self.hsize)
+
+        self.vsize = config['vsize']
+        self.vsize_var = tkinter.IntVar()
+        self.vsize_var.set(self.vsize)
+
+        self.header = config['header']
+        self.header_var = tkinter.IntVar()
+        self.header_var.set(self.header)
+
+        self.footer = config['footer']
+        self.footer_var = tkinter.IntVar()
+        self.footer_var.set(self.footer)
+
+        simpledialog.Dialog.__init__(self, master,
+                                     title="Shadowbox Properties",
+                                     *args, **kwargs)
+
+    def body(self, master):
+        tkinter.Label(master, text="Border Color").grid(row=0)
+        self.en0 = tkinter.Entry(master, textvariable=self.bgcolor_var)
+        self.en0.grid(row=0, column=1, sticky='ew')
+        self.bn0 = tkinter.Button(master, text="...",
+                                  command=lambda: self.choose_color())
+        self.bn0.grid(row=0, column=2)
+
+        tkinter.Label(master, text="Border Size").grid(row=1)
+        self.sb0 = tkinter.Spinbox(master, from_=0, to=200, textvariable=self.bordersize_var)
+        self.sb0.grid(row=1, column=1)
+
+        tkinter.Label(master, text="Horizontal Size").grid(row=2)
+        self.sb1 = tkinter.Spinbox(master, from_=0, to=4096, textvariable=self.hsize_var)
+        self.sb1.grid(row=2, column=1)
+
+        tkinter.Label(master, text="Vertical Size").grid(row=3)
+        self.sb2 = tkinter.Spinbox(master, from_=0, to=4096, textvariable=self.vsize_var)
+        self.sb2.grid(row=3, column=1)
+
+        tkinter.Label(master, text="Header").grid(row=4)
+        self.cb1 = tkinter.Checkbutton(master, text='First Layer', variable=self.header_var)
+        self.cb1.grid(row=4, column=1, sticky='w')
+
+        tkinter.Label(master, text="Footer").grid(row=5)
+        self.cb2 = tkinter.Checkbutton(master, text='Last Layer', variable=self.footer_var)
+        self.cb2.grid(row=5, column=1, sticky='w')
+
+        tkinter.Label(master, text="Export Path").grid(row=6)
+        self.en1 = tkinter.Entry(master, textvariable=self.exportpath_var)
+        self.en1.grid(row=6, column=1, sticky='ew')
+        self.bn1 = tkinter.Button(master, text="...",
+                                  command=lambda: self.choose_file(master))
+        self.bn1.grid(row=6, column=2)
+
+        return None
+
+    def choose_color(self):
+        "Browse for directory to be depicted as a layer in the shadowbox"
+
+        (triple, hexstr) = colorchooser.askcolor(self.bgcolor)
+        if hexstr:
+            self.bgcolor_var.set(hexstr)
+
+    def choose_file(self, master):
+        "Browse for file name of image to be exported."
+
+        result = filedialog.asksaveasfile(parent=master,
+                                          filetypes = (("jpeg files","*.jpg"),("all files","*.*")))
+        if result:
+            self.exportpath_var.set(result)
+
+    def apply(self):
+        self.bgcolor = self.bgcolor_var.get()
+        self.bordersize = self.bordersize_var.get()
+        self.hsize = self.hsize_var.get()
+        self.vsize = self.vsize_var.get()
+        self.header = self.header_var.get()
+        self.footer = self.footer_var.get()
+        self.exportpath = self.exportpath_var.get()
+
+
+class LayerDialog(simpledialog.Dialog):
+    "Modal dialog of each layer's content and appearance attributes."
+
+    def __init__(self, master, layer, *args, **kwargs):
+        self.layer_dir = layer['directory']
+        self.layer_dir_var = tkinter.StringVar()
+        self.layer_dir_var.set(self.layer_dir)
+
+        self.columns = layer['columns']
+        self.columns_var = tkinter.IntVar()
+        self.columns_var.set(self.columns)
+
+        self.padding = layer['padding']
+        self.padding_var = tkinter.IntVar()
+        self.padding_var.set(self.padding)
+
+        simpledialog.Dialog.__init__(self, master,
+                                     title="Shadowbox Layer Configuration",
+                                     *args, **kwargs)
+
+    def body(self, master):
+        "Configure Layer Dialog widgets"
+
+        tkinter.Label(master, text="Layer Directory").grid(row=0)
+        self.en0 = tkinter.Entry(master, textvariable=self.layer_dir_var)
+        self.en0.grid(row=0, column=1, sticky='ew')
+        self.bn0 = tkinter.Button(master, text="...",
+                                  command=lambda: self.choose_dir(master))
+        self.bn0.grid(row=0, column=2)
+
+        tkinter.Label(master, text="Columns").grid(row=1)
+        self.sb0 = tkinter.Spinbox(master, from_=0, to=100, textvariable=self.columns_var)
+        self.sb0.grid(row=1, column=1)
+
+        tkinter.Label(master, text="Padding (in Pixels)").grid(row=2)
+        self.sb1 = tkinter.Spinbox(master, from_=0, to=40, textvariable=self.padding_var)
+        self.sb1.grid(row=2, column=1)
+
+        return None
+
+    def choose_dir(self, master):
+        "Browse for directory to be depicted as a layer in the shadowbox"
+
+        result = filedialog.askdirectory(parent=master)
+        if result:
+            self.layer_dir_var.set(result)
+
+    def apply(self):
+        self.layer_dir = self.layer_dir_var.get()
+        self.columns = self.columns_var.get()
+        self.padding = self.padding_var.get()
+
+
+class LayerPanel(ttk.Frame):
+    "Addition and modification of shadowbox content."
+
+    def __init__(self, master):
+        ttk.Frame.__init__(self, master)
+        self.sections = []
+        self.buttons = []
+        self.config(border=1, relief=tkinter.GROOVE)
+        self.buttons.append(tkinter.Button(self, text='Add Directory',
+                                           command=lambda i=0: self.add_button()))
+        self.buttons[0].pack(side=tkinter.TOP, fill=tkinter.X)
+        self.separator = ttk.Separator(self)
+        self.separator.pack(side=tkinter.TOP, fill=tkinter.X, padx=0, pady=3)
+        self.pack()
+
+    def config_layer(self, number):
+        "Sample function provided to show how a toolbar command may be used."
+
+        if number:
+            layerconfig = LayerDialog(self, self.sections[number - 1])
+            result = {'directory':layerconfig.layer_dir,
+                      'columns':layerconfig.columns,
+                      'padding':layerconfig.padding}
+            self.sections[number - 1] = result
+        else:
+            self.add_button()
+
+    def add_button(self):
+        "Add a default valued layer to the layer panel."
+
+        number = len(self.buttons)
+        _button_text = str(number)
+        self.buttons.append(ttk.Button(self, text=_button_text,
+                                       command=lambda i=number:
+                                       self.config_layer(i)))
+        self.buttons[number].pack(side=tkinter.TOP, fill=tkinter.X)
+        self.pack()
+        self.sections.append(DEFAULT_SECTION)
+
+    def load(self, sections):
+        "Load layers into layer panel."
+
+        self.clear()
+        for index, layer in enumerate(sections):
+            self.add_button()
+            self.sections[index] = layer
+
+    def clear(self):
+        "Remove layers from layer panel."
+
+        while len(self.buttons) > 1:
+            self.buttons[-1].destroy()
+            del self.buttons[-1]
+        self.sections = []
+
+class StatusBar(ttk.Frame):
+    "Bottom of GUI displays state information one-liners."
+
+    def __init__(self, parent):
+        ttk.Frame.__init__(self, parent)
+        self.labels = []
+        self.config(border=1, relief=tkinter.GROOVE)
+        self.label = ttk.Label(self, text='Unset')
+        self.label.pack(side=tkinter.LEFT, fill=tkinter.X)
+        self.pack()
+
+    def set_text(self, new_text):
+        "Assign status bar text"
+
+        self.label.config(text=new_text)
+
+    def display_props(self, props):
+        "Display attributes from the properties dictionary."
+
+        result = 'Export configuration: '
+        result += str(props['hsize']) + ' x '
+        result += str(props['vsize']) + ' - '
+        result += props['exportpath']
+        self.set_text(result)
+
+
+class MainFrame(ttk.Frame):
+    "Main area of user interface content."
+
+    def __init__(self, parent):
+        ttk.Frame.__init__(self, parent)
+        self.display_area = tkinter.Label(parent)
+        self.display_area.image = None
+        self.display_area.pack(fill=tkinter.BOTH, expand=1)
+        self.bind("<Configure>", self._resize_binding)
+        self.unsized_image = None
+
+    def render_resized(self):
+        "Create preview image resized to viewing area."
+
+        if self.unsized_image:
+            widget_sizes = (self.display_area.winfo_width(), self.display_area.winfo_height())
+            ratiocinated = aspect_rationate(widget_sizes, self.unsized_image.size)
+            picture2 = self.unsized_image.resize(ratiocinated)
+            tkimage = ImageTk.PhotoImage(picture2)
+            self.display_area.config(image=tkimage)
+            self.display_area.image = tkimage
+        else:
+            self.display_area.config(image=None)
+            self.display_area.image = None
+
+    def show_image(self, picture):
+        "Begin process of creating the preview image and configure for resizing."
+
+        self.unsized_image = picture
+        self.render_resized()
+        self.display_area.pack(fill=tkinter.BOTH, expand=1)
+
+    def _resize_binding(self, event):
+        if self.unsized_image:
+            self.render_resized()
+
+
+class Dipsab(tkinter.Tk):
+    "Top level class over all the functionality of this program."
+
+    def __init__(self):
+        tkinter.Tk.__init__(self)
+        self.wm_geometry('800x600')
+        self.props = copy.deepcopy(DEFAULT_PROPS)
+
+        self.exportpath = ''
+        self.filename = ''
+        self.set_filename('')
+
+        self.statusbar = StatusBar(self)
+        self.statusbar.pack(side='bottom', fill='x')
+        self.statusbar.set_text('No errors')
+
+        self.layerpanel = LayerPanel(self)
+        self.layerpanel.pack(side='left', fill='y')
+
+        self.mainframe = MainFrame(self)
+        self.mainframe.pack(side='right', fill='y')
+
+        menubar = tkinter.Menu(self)
+        filemenu = tkinter.Menu(menubar, tearoff=False)
+        filemenu.add_command(label='New', command=self.new_dialog)
+        filemenu.add_command(label='Open', command=self.open_dialog)
+        filemenu.add_command(label='Save', command=self.save)
+        filemenu.add_command(label='Save As', command=self.save_as_dialog)
+        filemenu.add_separator()
+        filemenu.add_command(label='Properties', command=self.image_setup_dialog)
+        filemenu.add_command(label='Export', command=self.export)
+        filemenu.add_command(label='Export As', command=self.export_as_dialog)
+        filemenu.add_separator()
+        filemenu.add_command(label='Exit', underline=1, command=self.quit)
+
+        viewmenu = tkinter.Menu(menubar, tearoff=False)
+        viewmenu.add_command(label='Render', command=self.render_image)
+
+        helpmenu = tkinter.Menu(menubar, tearoff=False)
+        helpmenu.add_command(label='About', command=self.about_dialog)
+
+        menubar.add_cascade(label='File', underline=0, menu=filemenu)
+        menubar.add_cascade(label='View', underline=0, menu=viewmenu)
+        menubar.add_cascade(label='Help', underline=0, menu=helpmenu)
+        self.config(menu=menubar)
+
+    def quit(self):
+        "Ends toplevel execution."
+
+        sys.exit(0)
+
+    def about_dialog(self):
+        "Dialog concerning information about entities responsible for program."
+
+        _description = 'Shadowbox'
+        _description += '\n'
+        _description += '\n' + 'Version' + ': 0.1'
+        _description += '\n' + 'GitHub Package: shadowbox'
+        tkinter.messagebox.showinfo('About ' + DISPLAY_NAME, _description)
+
+    def new_dialog(self):
+        "Clear application to startup default values."
+
+        self.set_filename('')
+        self.props = copy.deepcopy(DEFAULT_PROPS)
+        self.layerpanel.clear()
+        self.render_image()
+
+    def open_dialog(self):
+        "Standard askopenfilename() invocation and result handling."
+
+        _name = filedialog.askopenfilename()
+        if isinstance(_name, str):
+            self.layerpanel.clear()
+            with open(_name) as json_file:
+                configuration = json.load(json_file)
+                self.props = configuration[0]
+                sections = configuration[1]
+                self.set_filename(_name)
+                self.exportpath = self.props['exportpath']
+            self.layerpanel.load(sections)
+            self.render_image()
+        else:
+            print('No file selected')
+
+    def save_as_dialog(self):
+        "Standard asksaveasfilename() invocation and result handling."
+
+        _name = filedialog.asksaveasfilename()
+        if _name:
+            self.set_filename(_name)
+            self.save()
+
+    def save(self):
+        "Save configuration in json file format to a pre-determined filename."
+
+        if self.filename:
+            configuration = []
+            configuration.append(self.props)
+            configuration.append(self.layerpanel.sections)
+            with open(self.filename, "w") as file:
+                json.dump(configuration, file, indent=4)
+        else:
+            self.save_as_dialog()
+
+    def export_as_dialog(self):
+        "Standard asksaveasfilename() invocation and result handling."
+
+        _name = filedialog.asksaveasfilename()
+        if _name:
+            if not _name.endswith('.jpg'):
+                self.exportpath = _name + '.jpg'
+            else:
+                self.exportpath = _name
+            self.export()
+
+    def export(self):
+        "Standard askopenfilename() invocation and result handling."
+
+        if self.exportpath:
+            self.create_image().save(self.exportpath)
+        else:
+            messagebox.showerror('Export Error', 'No export file name configured')
+
+    def image_setup_dialog(self):
+        "Standard dialog input and handling."
+
+        new_props = PropertiesDialog(self, self.props)
+        if new_props:
+            self.props['bgcolor'] = new_props.bgcolor
+            self.props['bordersize'] = new_props.bordersize
+            self.props['hsize'] = new_props.hsize
+            self.props['vsize'] = new_props.vsize
+            self.props['header'] = new_props.header
+            self.props['footer'] = new_props.footer
+            self.props['exportpath'] = new_props.exportpath
+            self.render_image()
+
+    def set_filename(self, newname):
+        "Set the class variable 'filename' and update application title"
+
+        self.filename = newname
+        head, tail = os.path.split(newname)
+        results = [tail, head, DISPLAY_NAME]
+        new_title = [r for r in results if r]
+        self.wm_title(' - '.join(new_title))
+
+    def create_image(self):
+        "Draw the image in the drawing area."
+
+        offset_x = self.props['bordersize']
+        top_y = self.props['bordersize']
+        bottom_y = self.props['vsize'] - self.props['bordersize']
+        layer_imgs = []
+        args = {}
+        args['bgcolor'] = self.props['bgcolor']
+        args['width'] = self.props['hsize'] - 2 * self.props['bordersize']
+        for layer in self.layerpanel.sections:
+            args['padding'] = layer['padding']
+            args['input'] = layer['directory']
+            #TODO: handle 'columns'
+            layer_imgs.append(dirim.dirim(args))
+
+        image = Image.new('RGB', (self.props['hsize'], self.props['vsize']),
+                          color=self.props['bgcolor'])
+
+        if self.props['header']:
+            image.paste(layer_imgs[0], (offset_x, top_y))
+            top_y += layer_imgs[0].size[1]
+            del layer_imgs[0]
+
+        if self.props['footer'] and layer_imgs:
+            bottom_y -= layer_imgs[-1].size[1]
+            image.paste(layer_imgs[-1], (offset_x, bottom_y))
+            del layer_imgs[-1]
+
+        total_height = sum(i.size[1] for i in layer_imgs)
+        total_height += self.props['bordersize'] * (len(layer_imgs) - 1)
+
+        offset_y = top_y + (bottom_y - top_y - total_height) // 2
+        #TODO: handle offset_y < border
+
+        for layer in layer_imgs:
+            image.paste(layer, (offset_x, offset_y))
+            offset_y += layer.size[1] + self.props['bordersize']
+
+        return image
+
+    def render_image(self):
+        "Draw the image in the drawing area."
+        self.statusbar.display_props(self.props)
+        self.mainframe.show_image(self.create_image())
+
+if __name__ == '__main__':
+    APPLICATION_GUI = Dipsab()
+    APPLICATION_GUI.mainloop()
