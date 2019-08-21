@@ -1,8 +1,8 @@
-======
 dipsab
 ======
 
-Program for the interactive creation of desktop images composed of directories
+dipsab is the acronym for Directory Images Padded, Stacked And Bordered, a
+program for the interactive creation of desktop images composed of directories
 worth of images.
 
 Features
@@ -18,6 +18,4 @@ Limitations
 * Untested for most uses.
 * No error reporting for directories not found when loading a configuration.
 
-Screenshot
-----------
-.. image:: Screenshot.png
+![Screenshot](Screenshot.png)
