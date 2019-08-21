@@ -12,6 +12,9 @@ from tkinter import filedialog, simpledialog, messagebox, colorchooser
 from PIL import Image, ImageTk
 import dirim
 
+__version__ = "0.1.0"
+__license__ = "MIT"
+
 DISPLAY_NAME = "dipsab"
 DEFAULT_SECTION = {'directory':'', 'columns':0, 'padding':10}
 DEFAULT_PROPS = {}
@@ -67,7 +70,7 @@ class PropertiesDialog(simpledialog.Dialog):
         self.footer_var.set(self.footer)
 
         simpledialog.Dialog.__init__(self, master,
-                                     title="Shadowbox Properties",
+                                     title=DISPLAY_NAME + " Properties",
                                      *args, **kwargs)
 
     def body(self, master):
@@ -118,7 +121,7 @@ class PropertiesDialog(simpledialog.Dialog):
         "Browse for file name of image to be exported."
 
         result = filedialog.asksaveasfile(parent=master,
-                                          filetypes = (("jpeg files","*.jpg"),("all files","*.*")))
+                                          filetypes=(("jpeg files", "*.jpg"), ("all files", "*.*")))
         if result:
             self.exportpath_var.set(result)
 
@@ -149,7 +152,7 @@ class LayerDialog(simpledialog.Dialog):
         self.padding_var.set(self.padding)
 
         simpledialog.Dialog.__init__(self, master,
-                                     title="Shadowbox Layer Configuration",
+                                     title=DISPLAY_NAME + " Layer Configuration",
                                      *args, **kwargs)
 
     def body(self, master):
@@ -357,10 +360,9 @@ class Dipsab(tkinter.Tk):
     def about_dialog(self):
         "Dialog concerning information about entities responsible for program."
 
-        _description = 'Shadowbox'
-        _description += '\n'
-        _description += '\n' + 'Version' + ': 0.1'
-        _description += '\n' + 'GitHub Package: shadowbox'
+        _description = 'Version: ' + __version__
+        _description += '\nLicense: ' + __license__
+        _description += '\nGitHub: ivanlyon/' + DISPLAY_NAME
         tkinter.messagebox.showinfo('About ' + DISPLAY_NAME, _description)
 
     def new_dialog(self):

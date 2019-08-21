@@ -22,7 +22,6 @@ import os
 import argparse
 from PIL import Image
 
-__author__ = "Your Name"
 __version__ = "0.1.0"
 __license__ = "MIT"
 
@@ -88,36 +87,36 @@ def rows_filenames(input_dir, max_width, padding):
 def dirim(cl_args):
     """Read a line of input, parse integers, throw rest of line away"""
 
-    MAX_WIDTH = cl_args['width']
-    PADDING = cl_args['padding']
+    max_width = cl_args['width']
+    padding = cl_args['padding']
 
     layers = []
-    row_images = rows_filenames(cl_args['input'], MAX_WIDTH, PADDING)
+    row_images = rows_filenames(cl_args['input'], max_width, padding)
 
-    total_height = PADDING * (len(row_images) - 1)
+    total_height = padding * (len(row_images) - 1)
     for row in row_images:
         images = map(Image.open, row)
         widths, heights = zip(*(i.size for i in images))
 
         max_height = max(heights)
-        total_width = sum(widths) + PADDING * (len(widths) - 1)
-        offset_x = (MAX_WIDTH - total_width) // 2
+        total_width = sum(widths) + padding * (len(widths) - 1)
+        offset_x = (max_width - total_width) // 2
 
-        result_row = Image.new('RGB', (MAX_WIDTH, max_height), color=cl_args['bgcolor'])
+        result_row = Image.new('RGB', (max_width, max_height), color=cl_args['bgcolor'])
         images = map(Image.open, row)
         for img in images:
             result_row.paste(img, (offset_x, 0))
-            offset_x += PADDING + img.size[0]
+            offset_x += padding + img.size[0]
 
         layers.append(result_row)
         total_height += result_row.size[1]
 
     layers.reverse()
     offset_y = 0
-    final_image = Image.new('RGB', (MAX_WIDTH, total_height), color=cl_args['bgcolor'])
+    final_image = Image.new('RGB', (max_width, total_height), color=cl_args['bgcolor'])
     for row in layers:
         final_image.paste(row, (0, offset_y))
-        offset_y += PADDING + row.size[1]
+        offset_y += padding + row.size[1]
 
     return final_image.convert("RGB") # Remove alpha to workaround JPG bug
 
