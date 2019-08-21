@@ -38,7 +38,7 @@ def dir_path(path):
 
 ###############################################################################
 
-def rows_filenames(input_dir, max_width, padding):
+def rows_filenames(input_dir, max_width, hpad):
     "Create a sequence of rows each containing filenames."
 
     row_height = 0
@@ -64,8 +64,8 @@ def rows_filenames(input_dir, max_width, padding):
         row_height = max(row_height, img_height)
 
         if rowed:
-            if row_width - img_width - padding >= 0:
-                row_width -= img_width + padding
+            if row_width - img_width - hpad >= 0:
+                row_width -= img_width + hpad
             else:
                 rowed.reverse()
                 row_images.append(rowed)
@@ -88,25 +88,26 @@ def dirim(cl_args):
     """Read a line of input, parse integers, throw rest of line away"""
 
     max_width = cl_args['width']
-    padding = cl_args['padding']
+    hpad = cl_args['hpad']
+    vpad = cl_args['vpad']
 
     layers = []
-    row_images = rows_filenames(cl_args['input'], max_width, padding)
+    row_images = rows_filenames(cl_args['input'], max_width, hpad)
 
-    total_height = padding * (len(row_images) - 1)
+    total_height = vpad * (len(row_images) - 1)
     for row in row_images:
         images = map(Image.open, row)
         widths, heights = zip(*(i.size for i in images))
 
         max_height = max(heights)
-        total_width = sum(widths) + padding * (len(widths) - 1)
+        total_width = sum(widths) + hpad * (len(widths) - 1)
         offset_x = (max_width - total_width) // 2
 
         result_row = Image.new('RGB', (max_width, max_height), color=cl_args['bgcolor'])
         images = map(Image.open, row)
         for img in images:
             result_row.paste(img, (offset_x, 0))
-            offset_x += padding + img.size[0]
+            offset_x += hpad + img.size[0]
 
         layers.append(result_row)
         total_height += result_row.size[1]
@@ -116,7 +117,7 @@ def dirim(cl_args):
     final_image = Image.new('RGB', (max_width, total_height), color=cl_args['bgcolor'])
     for row in layers:
         final_image.paste(row, (0, offset_y))
-        offset_y += padding + row.size[1]
+        offset_y += vpad + row.size[1]
 
     return final_image.convert("RGB") # Remove alpha to workaround JPG bug
 
@@ -132,7 +133,9 @@ if __name__ == '__main__':
                         default=0)
     parser.add_argument("--width", help="Width of final image in pixels", type=int,
                         default=0)
-    parser.add_argument("--padding", help="Pixels of padding between icons", type=int,
+    parser.add_argument("--vpad", help="Vertical pixels between images", type=int,
+                        default=0)
+    parser.add_argument("--hpad", help="Horizontal pixels between images", type=int,
                         default=0)
 
     # Specify output of "--version"

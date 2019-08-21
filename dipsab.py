@@ -16,7 +16,7 @@ __version__ = "0.1.0"
 __license__ = "MIT"
 
 DISPLAY_NAME = "dipsab"
-DEFAULT_SECTION = {'directory':'', 'columns':0, 'padding':10}
+DEFAULT_SECTION = {'directory':'', 'hpad':10, 'vpad':10}
 DEFAULT_PROPS = {}
 DEFAULT_PROPS['bgcolor'] = '#000000'
 DEFAULT_PROPS['bordersize'] = 40
@@ -143,13 +143,13 @@ class LayerDialog(simpledialog.Dialog):
         self.layer_dir_var = tkinter.StringVar()
         self.layer_dir_var.set(self.layer_dir)
 
-        self.columns = layer['columns']
-        self.columns_var = tkinter.IntVar()
-        self.columns_var.set(self.columns)
+        self.hpad = layer['hpad']
+        self.hpad_var = tkinter.IntVar()
+        self.hpad_var.set(self.hpad)
 
-        self.padding = layer['padding']
-        self.padding_var = tkinter.IntVar()
-        self.padding_var.set(self.padding)
+        self.vpad = layer['vpad']
+        self.vpad_var = tkinter.IntVar()
+        self.vpad_var.set(self.vpad)
 
         simpledialog.Dialog.__init__(self, master,
                                      title=DISPLAY_NAME + " Layer Configuration",
@@ -165,12 +165,12 @@ class LayerDialog(simpledialog.Dialog):
                                   command=lambda: self.choose_dir(master))
         self.bn0.grid(row=0, column=2)
 
-        tkinter.Label(master, text="Columns").grid(row=1)
-        self.sb0 = tkinter.Spinbox(master, from_=0, to=100, textvariable=self.columns_var)
+        tkinter.Label(master, text="Padding, Vertical").grid(row=1)
+        self.sb0 = tkinter.Spinbox(master, from_=0, to=400, textvariable=self.vpad_var)
         self.sb0.grid(row=1, column=1)
 
-        tkinter.Label(master, text="Padding (in Pixels)").grid(row=2)
-        self.sb1 = tkinter.Spinbox(master, from_=0, to=40, textvariable=self.padding_var)
+        tkinter.Label(master, text="Padding, Horizontal").grid(row=2)
+        self.sb1 = tkinter.Spinbox(master, from_=0, to=400, textvariable=self.hpad_var)
         self.sb1.grid(row=2, column=1)
 
         return None
@@ -184,8 +184,8 @@ class LayerDialog(simpledialog.Dialog):
 
     def apply(self):
         self.layer_dir = self.layer_dir_var.get()
-        self.columns = self.columns_var.get()
-        self.padding = self.padding_var.get()
+        self.hpad = self.hpad_var.get()
+        self.vpad = self.vpad_var.get()
 
 
 class LayerPanel(ttk.Frame):
@@ -193,11 +193,12 @@ class LayerPanel(ttk.Frame):
 
     def __init__(self, master):
         ttk.Frame.__init__(self, master)
+        self.parent = master
         self.sections = []
         self.buttons = []
         self.config(border=1, relief=tkinter.GROOVE)
-        self.buttons.append(tkinter.Button(self, text='Add Directory',
-                                           command=lambda i=0: self.add_button()))
+        self.buttons.append(tkinter.Button(self, text='Add Images',
+                                           command=lambda: self.add_button()))
         self.buttons[0].pack(side=tkinter.TOP, fill=tkinter.X)
         self.separator = ttk.Separator(self)
         self.separator.pack(side=tkinter.TOP, fill=tkinter.X, padx=0, pady=3)
@@ -209,9 +210,10 @@ class LayerPanel(ttk.Frame):
         if number:
             layerconfig = LayerDialog(self, self.sections[number - 1])
             result = {'directory':layerconfig.layer_dir,
-                      'columns':layerconfig.columns,
-                      'padding':layerconfig.padding}
+                      'hpad':layerconfig.hpad,
+                      'vpad':layerconfig.vpad}
             self.sections[number - 1] = result
+            self.parent.render_image()
         else:
             self.add_button()
 
@@ -463,9 +465,9 @@ class Dipsab(tkinter.Tk):
         args['bgcolor'] = self.props['bgcolor']
         args['width'] = self.props['hsize'] - 2 * self.props['bordersize']
         for layer in self.layerpanel.sections:
-            args['padding'] = layer['padding']
+            args['hpad'] = layer['hpad']
+            args['vpad'] = layer['vpad']
             args['input'] = layer['directory']
-            #TODO: handle 'columns'
             layer_imgs.append(dirim.dirim(args))
 
         image = Image.new('RGB', (self.props['hsize'], self.props['vsize']),
@@ -495,6 +497,12 @@ class Dipsab(tkinter.Tk):
 
     def render_image(self):
         "Draw the image in the drawing area."
+
+        for idx, layer in enumerate(self.layerpanel.sections, start=1):
+            if not os.path.isdir(layer['directory']):
+                self.statusbar.set_text('ERROR: invalid location in layer ' + str(idx))
+                return
+
         self.statusbar.display_props(self.props)
         self.mainframe.show_image(self.create_image())
 
