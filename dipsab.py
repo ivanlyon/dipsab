@@ -37,6 +37,18 @@ def aspect_rationate(available, candidate):
 
     return result
 
+def ok_dialog(parent, dialog_title, dialog_text):
+    "Display configured text + title and exit upon 'OK' button click."
+    top = tkinter.Toplevel(parent)
+    top.title(dialog_title)
+
+    textlabel = tkinter.Label(top, text=dialog_text)
+    textlabel.pack(fill=tkinter.BOTH)
+
+    ok_button = tkinter.Button(top, text='OK', command=top.destroy)
+    ok_button.pack(fill=tkinter.X)
+
+
 class PropertiesDialog(simpledialog.Dialog):
     "Modal dialog of each layer's content and appearance attributes."
 
@@ -77,8 +89,7 @@ class PropertiesDialog(simpledialog.Dialog):
         tkinter.Label(master, text="Border Color").grid(row=0)
         self.en0 = tkinter.Entry(master, textvariable=self.bgcolor_var)
         self.en0.grid(row=0, column=1, sticky='ew')
-        self.bn0 = tkinter.Button(master, text="...",
-                                  command=lambda: self.choose_color())
+        self.bn0 = tkinter.Button(master, text="...", command=self.choose_color())
         self.bn0.grid(row=0, column=2)
 
         tkinter.Label(master, text="Border Size").grid(row=1)
@@ -120,8 +131,9 @@ class PropertiesDialog(simpledialog.Dialog):
     def choose_file(self, master):
         "Browse for file name of image to be exported."
 
-        result = filedialog.asksaveasfile(parent=master,
-                                          filetypes=(("jpeg files", "*.jpg"), ("all files", "*.*")))
+        result = filedialog.asksaveasfilename(parent=master,
+                                              filetypes=(("jpeg files", "*.jpg"),
+                                                         ("all files", "*.*")))
         if result:
             self.exportpath_var.set(result)
 
@@ -245,6 +257,7 @@ class LayerPanel(ttk.Frame):
             del self.buttons[-1]
         self.sections = []
 
+
 class StatusBar(ttk.Frame):
     "Bottom of GUI displays state information one-liners."
 
@@ -365,7 +378,7 @@ class Dipsab(tkinter.Tk):
         _description = 'Version: ' + __version__
         _description += '\nLicense: ' + __license__
         _description += '\nGitHub: ivanlyon/' + DISPLAY_NAME
-        tkinter.messagebox.showinfo('About ' + DISPLAY_NAME, _description)
+        ok_dialog(self, 'About ' + DISPLAY_NAME, _description)
 
     def new_dialog(self):
         "Clear application to startup default values."
