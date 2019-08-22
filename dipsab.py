@@ -53,10 +53,6 @@ class PropertiesDialog(simpledialog.Dialog):
     "Modal dialog of each layer's content and appearance attributes."
 
     def __init__(self, master, config, *args, **kwargs):
-        self.exportpath = config['exportpath']
-        self.exportpath_var = tkinter.StringVar()
-        self.exportpath_var.set(self.exportpath)
-
         self.bgcolor = config['bgcolor']
         self.bgcolor_var = tkinter.StringVar()
         self.bgcolor_var.set(self.bgcolor)
@@ -89,7 +85,7 @@ class PropertiesDialog(simpledialog.Dialog):
         tkinter.Label(master, text="Border Color").grid(row=0)
         self.en0 = tkinter.Entry(master, textvariable=self.bgcolor_var)
         self.en0.grid(row=0, column=1, sticky='ew')
-        self.bn0 = tkinter.Button(master, text="...", command=self.choose_color())
+        self.bn0 = tkinter.Button(master, text="...", command=lambda: self.choose_color())
         self.bn0.grid(row=0, column=2)
 
         tkinter.Label(master, text="Border Size").grid(row=1)
@@ -112,13 +108,6 @@ class PropertiesDialog(simpledialog.Dialog):
         self.cb2 = tkinter.Checkbutton(master, text='Last Layer', variable=self.footer_var)
         self.cb2.grid(row=5, column=1, sticky='w')
 
-        tkinter.Label(master, text="Export Path").grid(row=6)
-        self.en1 = tkinter.Entry(master, textvariable=self.exportpath_var)
-        self.en1.grid(row=6, column=1, sticky='ew')
-        self.bn1 = tkinter.Button(master, text="...",
-                                  command=lambda: self.choose_file(master))
-        self.bn1.grid(row=6, column=2)
-
         return None
 
     def choose_color(self):
@@ -128,15 +117,6 @@ class PropertiesDialog(simpledialog.Dialog):
         if hexstr:
             self.bgcolor_var.set(hexstr)
 
-    def choose_file(self, master):
-        "Browse for file name of image to be exported."
-
-        result = filedialog.asksaveasfilename(parent=master,
-                                              filetypes=(("jpeg files", "*.jpg"),
-                                                         ("all files", "*.*")))
-        if result:
-            self.exportpath_var.set(result)
-
     def apply(self):
         self.bgcolor = self.bgcolor_var.get()
         self.bordersize = self.bordersize_var.get()
@@ -144,7 +124,6 @@ class PropertiesDialog(simpledialog.Dialog):
         self.vsize = self.vsize_var.get()
         self.header = self.header_var.get()
         self.footer = self.footer_var.get()
-        self.exportpath = self.exportpath_var.get()
 
 
 class LayerDialog(simpledialog.Dialog):
@@ -280,7 +259,10 @@ class StatusBar(ttk.Frame):
         result = 'Export configuration: '
         result += str(props['hsize']) + ' x '
         result += str(props['vsize']) + ' - '
-        result += props['exportpath']
+        if props['exportpath']:
+            result += props['exportpath']
+        else:
+            result += '(No export path exists)'
         self.set_text(result)
 
 
@@ -343,29 +325,40 @@ class Dipsab(tkinter.Tk):
         self.mainframe = MainFrame(self)
         self.mainframe.pack(side='right', fill='y')
 
-        menubar = tkinter.Menu(self)
-        filemenu = tkinter.Menu(menubar, tearoff=False)
-        filemenu.add_command(label='New', command=self.new_dialog)
-        filemenu.add_command(label='Open', command=self.open_dialog)
-        filemenu.add_command(label='Save', command=self.save)
-        filemenu.add_command(label='Save As', command=self.save_as_dialog)
-        filemenu.add_separator()
-        filemenu.add_command(label='Properties', command=self.image_setup_dialog)
-        filemenu.add_command(label='Export', command=self.export)
-        filemenu.add_command(label='Export As', command=self.export_as_dialog)
-        filemenu.add_separator()
-        filemenu.add_command(label='Exit', underline=1, command=self.quit)
+        self.menubar = tkinter.Menu(self)
+        self.filemenu = tkinter.Menu(self.menubar, tearoff=False)
+        self.filemenu.add_command(label='New', command=self.new_dialog)
+        self.filemenu.add_command(label='Open', command=self.open_dialog)
+        self.filemenu.add_command(label='Save', command=self.save)
+        self.filemenu.add_command(label='Save As', command=self.save_as_dialog)
+        self.filemenu.add_separator()
+        self.filemenu.add_command(label='Properties', command=self.image_setup_dialog)
+        self.filemenu.add_command(label='Export', command=self.export)
+        self.filemenu.add_command(label='Export As', command=self.export_as_dialog)
+        self.filemenu.add_separator()
+        self.filemenu.add_command(label='Exit', underline=1, command=self.quit)
 
-        viewmenu = tkinter.Menu(menubar, tearoff=False)
-        viewmenu.add_command(label='Render', command=self.render_image)
+        self.viewmenu = tkinter.Menu(self.menubar, tearoff=False)
+        self.viewmenu.add_command(label='Render', command=self.render_image)
 
-        helpmenu = tkinter.Menu(menubar, tearoff=False)
-        helpmenu.add_command(label='About', command=self.about_dialog)
+        self.helpmenu = tkinter.Menu(self.menubar, tearoff=False)
+        self.helpmenu.add_command(label='About', command=self.about_dialog)
 
-        menubar.add_cascade(label='File', underline=0, menu=filemenu)
-        menubar.add_cascade(label='View', underline=0, menu=viewmenu)
-        menubar.add_cascade(label='Help', underline=0, menu=helpmenu)
-        self.config(menu=menubar)
+        self.menubar.add_cascade(label='File', underline=0, menu=self.filemenu)
+        self.menubar.add_cascade(label='View', underline=0, menu=self.viewmenu)
+        self.menubar.add_cascade(label='Help', underline=0, menu=self.helpmenu)
+        self.config(menu=self.menubar)
+
+        self.render_exportable()
+        self.statusbar.display_props(self.props)
+
+    def render_exportable(self):
+        "Toggle state of export path according to existence of variable content."
+
+        if self.exportpath:
+            self.filemenu.entryconfigure("Export", state="normal")
+        else:
+            self.filemenu.entryconfigure("Export", state="disabled")
 
     def quit(self):
         "Ends toplevel execution."
@@ -434,6 +427,7 @@ class Dipsab(tkinter.Tk):
                 self.exportpath = _name + '.jpg'
             else:
                 self.exportpath = _name
+            self.props['exportpath'] = self.exportpath
             self.export()
 
     def export(self):
@@ -443,6 +437,7 @@ class Dipsab(tkinter.Tk):
             self.create_image().save(self.exportpath)
         else:
             messagebox.showerror('Export Error', 'No export file name configured')
+        self.statusbar.display_props(self.props)
 
     def image_setup_dialog(self):
         "Standard dialog input and handling."
@@ -455,7 +450,6 @@ class Dipsab(tkinter.Tk):
             self.props['vsize'] = new_props.vsize
             self.props['header'] = new_props.header
             self.props['footer'] = new_props.footer
-            self.props['exportpath'] = new_props.exportpath
             self.render_image()
 
     def set_filename(self, newname):
@@ -516,6 +510,7 @@ class Dipsab(tkinter.Tk):
                 self.statusbar.set_text('ERROR: invalid location in layer ' + str(idx))
                 return
 
+        self.render_exportable()
         self.statusbar.display_props(self.props)
         self.mainframe.show_image(self.create_image())
 
