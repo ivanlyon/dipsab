@@ -42,12 +42,13 @@ def ok_dialog(parent, dialog_title, dialog_text):
     top = tkinter.Toplevel(parent)
     top.title(dialog_title)
 
-    textlabel = tkinter.Label(top, text=dialog_text)
+    textlabel = tkinter.Label(top, text=dialog_text, justify=tkinter.LEFT)
     textlabel.pack(fill=tkinter.BOTH)
 
     ok_button = tkinter.Button(top, text='OK', command=top.destroy)
     ok_button.pack(fill=tkinter.X)
 
+###############################################################################
 
 class PropertiesDialog(simpledialog.Dialog):
     "Modal dialog of each layer's content and appearance attributes."
@@ -125,11 +126,12 @@ class PropertiesDialog(simpledialog.Dialog):
         self.header = self.header_var.get()
         self.footer = self.footer_var.get()
 
+###############################################################################
 
 class LayerDialog(simpledialog.Dialog):
     "Modal dialog of each layer's content and appearance attributes."
 
-    def __init__(self, master, layer, *args, **kwargs):
+    def __init__(self, master, layer, number, *args, **kwargs):
         self.layer_dir = layer['directory']
         self.layer_dir_var = tkinter.StringVar()
         self.layer_dir_var.set(self.layer_dir)
@@ -142,9 +144,8 @@ class LayerDialog(simpledialog.Dialog):
         self.vpad_var = tkinter.IntVar()
         self.vpad_var.set(self.vpad)
 
-        simpledialog.Dialog.__init__(self, master,
-                                     title=DISPLAY_NAME + " Layer Configuration",
-                                     *args, **kwargs)
+        dialog_title = DISPLAY_NAME + " Layer " + str(number) + " Configuration"
+        simpledialog.Dialog.__init__(self, master, title=dialog_title, *args, **kwargs)
 
     def body(self, master):
         "Configure Layer Dialog widgets"
@@ -178,64 +179,47 @@ class LayerDialog(simpledialog.Dialog):
         self.hpad = self.hpad_var.get()
         self.vpad = self.vpad_var.get()
 
+###############################################################################
 
 class LayerPanel(ttk.Frame):
     "Addition and modification of shadowbox content."
 
-    def __init__(self, master):
-        ttk.Frame.__init__(self, master)
-        self.parent = master
-        self.sections = []
+    def __init__(self, parent):
+        ttk.Frame.__init__(self, parent, style='My.TFrame')
+        self.parent = parent
         self.buttons = []
         self.config(border=1, relief=tkinter.GROOVE)
-        self.buttons.append(tkinter.Button(self, text='Add Images',
-                                           command=lambda: self.add_button()))
-        self.buttons[0].pack(side=tkinter.TOP, fill=tkinter.X)
-        self.separator = ttk.Separator(self)
-        self.separator.pack(side=tkinter.TOP, fill=tkinter.X, padx=0, pady=3)
         self.pack()
 
     def config_layer(self, number):
         "Sample function provided to show how a toolbar command may be used."
 
-        if number:
-            layerconfig = LayerDialog(self, self.sections[number - 1])
-            result = {'directory':layerconfig.layer_dir,
-                      'hpad':layerconfig.hpad,
-                      'vpad':layerconfig.vpad}
-            self.sections[number - 1] = result
-            self.parent.render_image()
-        else:
-            self.add_button()
+        layerconfig = LayerDialog(self, self.parent.sections[number], number + 1)
+        result = {'directory':layerconfig.layer_dir,
+                  'hpad':layerconfig.hpad,
+                  'vpad':layerconfig.vpad}
+        self.parent.sections[number] = result
+        self.parent.render_image()
 
-    def add_button(self):
-        "Add a default valued layer to the layer panel."
-
-        number = len(self.buttons)
-        _button_text = str(number)
-        self.buttons.append(ttk.Button(self, text=_button_text,
-                                       command=lambda i=number:
-                                       self.config_layer(i)))
-        self.buttons[number].pack(side=tkinter.TOP, fill=tkinter.X)
-        self.pack()
-        self.sections.append(DEFAULT_SECTION)
-
-    def load(self, sections):
+    def load(self):
         "Load layers into layer panel."
 
         self.clear()
-        for index, layer in enumerate(sections):
-            self.add_button()
-            self.sections[index] = layer
+        for index in range(len(self.parent.sections)):
+            _button_text = str(index + 1)
+            self.buttons.append(ttk.Button(self, text=_button_text,
+                                           command=lambda i=index: self.config_layer(i)))
+            self.buttons[index].pack(side=tkinter.TOP, fill=tkinter.X)
+            self.pack()
 
     def clear(self):
         "Remove layers from layer panel."
 
-        while len(self.buttons) > 1:
+        while self.buttons:
             self.buttons[-1].destroy()
             del self.buttons[-1]
-        self.sections = []
 
+###############################################################################
 
 class StatusBar(ttk.Frame):
     "Bottom of GUI displays state information one-liners."
@@ -265,6 +249,7 @@ class StatusBar(ttk.Frame):
             result += '(No export path exists)'
         self.set_text(result)
 
+###############################################################################
 
 class MainFrame(ttk.Frame):
     "Main area of user interface content."
@@ -294,6 +279,7 @@ class MainFrame(ttk.Frame):
     def show_image(self, picture):
         "Begin process of creating the preview image and configure for resizing."
 
+        self.display_area.update()
         self.unsized_image = picture
         self.render_resized()
         self.display_area.pack(fill=tkinter.BOTH, expand=1)
@@ -302,6 +288,97 @@ class MainFrame(ttk.Frame):
         if self.unsized_image:
             self.render_resized()
 
+###############################################################################
+
+class ToolBar(ttk.Frame):
+    "Sample toolbar provided by cookiecutter switch."
+
+    def __init__(self, parent):
+        ttk.Frame.__init__(self, parent, style='My.TFrame')
+        self.parent = parent
+        self.buttons = []
+        self.config(border=1, relief=tkinter.GROOVE)
+        self.add_button = ttk.Button(self, text=u"\u271A", command=self.add_layer)
+        self.add_button.pack(side=tkinter.LEFT, fill=tkinter.X)
+        self.del_button = ttk.Button(self, text=u"\u2796", command=self.del_layer)
+        self.del_button.pack(side=tkinter.LEFT, fill=tkinter.X)
+        self.up_button = ttk.Button(self, text=u"\u2963", command=self.raise_layer)
+        self.up_button.pack(side=tkinter.LEFT, fill=tkinter.X)
+        self.dn_button = ttk.Button(self, text=u"\u2965", command=self.lower_layer)
+        self.dn_button.pack(side=tkinter.LEFT, fill=tkinter.X)
+        self.pack()
+        self.enabling()
+
+    def add_layer(self):
+        "Add a default valued layer to the layer panel."
+
+        number = len(self.parent.sections)
+        self.parent.sections.append(DEFAULT_SECTION)
+        self.parent.layerpanel.load()
+        self.enabling()
+        self.parent.layerpanel.config_layer(number)
+
+    def del_layer(self):
+        "Add a default valued layer to the layer panel."
+
+        prompt = 'Layer to be deleted (1 - ' + str(len(self.parent.sections)) + ')'
+        deleting = simpledialog.askinteger('Delete Layer', prompt)
+        if deleting:
+            deleting -= 1
+            if 0 <= deleting < len(self.parent.sections):
+                del self.parent.sections[deleting]
+                self.parent.render_image()
+                self.parent.layerpanel.load()
+                self.enabling()
+            else:
+                messagebox.showerror('Invalid', 'Invalid layer number entered')
+                self.del_layer()
+
+    def raise_layer(self):
+        "Add a default valued layer to the layer panel."
+
+        sections = self.parent.sections
+        prompt = 'Layer to be raised (2 - ' + str(len(sections)) + ')'
+        raising = simpledialog.askinteger('Raise Layer', prompt)
+        if raising:
+            raising -= 1
+            if 1 <= raising < len(sections):
+                sections[raising], sections[raising - 1] = sections[raising - 1], sections[raising]
+                self.parent.render_image()
+                self.parent.layerpanel.load()
+            else:
+                messagebox.showerror('Invalid', 'Invalid layer number entered')
+                self.raise_layer()
+
+    def lower_layer(self):
+        "Add a default valued layer to the layer panel."
+
+        sections = self.parent.sections
+        prompt = 'Layer to be lowered (1 - ' + str(len(sections) - 1) + ')'
+        lowering = simpledialog.askinteger('Lower Layer', prompt)
+        if lowering:
+            lowering -= 1
+            if 0 <= lowering < len(sections) - 1:
+                sections[lowering], sections[lowering + 1] = sections[lowering + 1], sections[lowering]
+                self.parent.render_image()
+                self.parent.layerpanel.load()
+            else:
+                messagebox.showerror('Invalid', 'Invalid layer number entered')
+                self.lower_layer()
+
+    def enabling(self):
+        "Enable toolbar buttons according to existence of layers available."
+
+        if self.parent.sections:
+            self.del_button.config(state='active')
+            self.up_button.config(state='active')
+            self.dn_button.config(state='active')
+        else:
+            self.del_button.config(state='disabled')
+            self.up_button.config(state='disabled')
+            self.dn_button.config(state='disabled')
+
+###############################################################################
 
 class Dipsab(tkinter.Tk):
     "Top level class over all the functionality of this program."
@@ -311,6 +388,12 @@ class Dipsab(tkinter.Tk):
         self.wm_geometry('800x600')
         self.props = copy.deepcopy(DEFAULT_PROPS)
 
+        self.style = ttk.Style()
+#        self.style.configure('TFrame', background='#666666')
+        self.style.configure('My.TFrame', background='#777777')
+#        self.style.configure('My.TButton', background='#111111')
+
+        self.sections = []
         self.exportpath = ''
         self.filename = ''
         self.set_filename('')
@@ -318,6 +401,9 @@ class Dipsab(tkinter.Tk):
         self.statusbar = StatusBar(self)
         self.statusbar.pack(side='bottom', fill='x')
         self.statusbar.set_text('No errors')
+
+        self.toolbar = ToolBar(self)
+        self.toolbar.pack(side='top', fill='x')
 
         self.layerpanel = LayerPanel(self)
         self.layerpanel.pack(side='left', fill='y')
@@ -368,7 +454,8 @@ class Dipsab(tkinter.Tk):
     def about_dialog(self):
         "Dialog concerning information about entities responsible for program."
 
-        _description = 'Version: ' + __version__
+        _description = 'wat: Directory Images Padded, Stacked And Bordered'
+        _description += '\nVersion: ' + __version__
         _description += '\nLicense: ' + __license__
         _description += '\nGitHub: ivanlyon/' + DISPLAY_NAME
         ok_dialog(self, 'About ' + DISPLAY_NAME, _description)
@@ -379,6 +466,7 @@ class Dipsab(tkinter.Tk):
         self.set_filename('')
         self.props = copy.deepcopy(DEFAULT_PROPS)
         self.layerpanel.clear()
+        self.sections = []
         self.render_image()
 
     def open_dialog(self):
@@ -390,10 +478,11 @@ class Dipsab(tkinter.Tk):
             with open(_name) as json_file:
                 configuration = json.load(json_file)
                 self.props = configuration[0]
-                sections = configuration[1]
+                self.sections = configuration[1]
                 self.set_filename(_name)
                 self.exportpath = self.props['exportpath']
-            self.layerpanel.load(sections)
+            self.layerpanel.load()
+            self.toolbar.enabling()
             self.render_image()
         else:
             print('No file selected')
@@ -412,7 +501,7 @@ class Dipsab(tkinter.Tk):
         if self.filename:
             configuration = []
             configuration.append(self.props)
-            configuration.append(self.layerpanel.sections)
+            configuration.append(self.sections)
             with open(self.filename, "w") as file:
                 json.dump(configuration, file, indent=4)
         else:
@@ -471,7 +560,7 @@ class Dipsab(tkinter.Tk):
         args = {}
         args['bgcolor'] = self.props['bgcolor']
         args['width'] = self.props['hsize'] - 2 * self.props['bordersize']
-        for layer in self.layerpanel.sections:
+        for layer in self.sections:
             args['hpad'] = layer['hpad']
             args['vpad'] = layer['vpad']
             args['input'] = layer['directory']
@@ -505,7 +594,7 @@ class Dipsab(tkinter.Tk):
     def render_image(self):
         "Draw the image in the drawing area."
 
-        for idx, layer in enumerate(self.layerpanel.sections, start=1):
+        for idx, layer in enumerate(self.sections, start=1):
             if not os.path.isdir(layer['directory']):
                 self.statusbar.set_text('ERROR: invalid location in layer ' + str(idx))
                 return
@@ -513,6 +602,8 @@ class Dipsab(tkinter.Tk):
         self.render_exportable()
         self.statusbar.display_props(self.props)
         self.mainframe.show_image(self.create_image())
+
+###############################################################################
 
 if __name__ == '__main__':
     APPLICATION_GUI = Dipsab()
