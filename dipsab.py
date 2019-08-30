@@ -198,14 +198,13 @@ class LayerPanel(ttk.Frame):
         result = {'directory':layerconfig.layer_dir,
                   'hpad':layerconfig.hpad,
                   'vpad':layerconfig.vpad}
-        self.parent.sections[number] = result
-        self.parent.render_image()
+        self.parent.assign_section(number, result)
 
-    def load(self):
+    def load(self, len_sections):
         "Load layers into layer panel."
 
         self.clear()
-        for index in range(len(self.parent.sections)):
+        for index in range(len_sections):
             _button_text = str(index + 1)
             self.buttons.append(ttk.Button(self, text=_button_text,
                                            command=lambda i=index: self.config_layer(i)))
@@ -312,56 +311,48 @@ class ToolBar(ttk.Frame):
     def add_layer(self):
         "Add a default valued layer to the layer panel."
 
-        number = len(self.parent.sections)
-        self.parent.sections.append(DEFAULT_SECTION)
-        self.parent.layerpanel.load()
+        self.parent.add_section()
         self.enabling()
-        self.parent.layerpanel.config_layer(number)
 
     def del_layer(self):
-        "Add a default valued layer to the layer panel."
+        "Remove a layer from the sequence of layers. No Undo provided."
 
-        prompt = 'Layer to be deleted (1 - ' + str(len(self.parent.sections)) + ')'
+        number = self.parent.len_sections()
+        prompt = 'Layer to be deleted (1 - ' + str(number) + ')'
         deleting = simpledialog.askinteger('Delete Layer', prompt)
         if deleting:
             deleting -= 1
-            if 0 <= deleting < len(self.parent.sections):
-                del self.parent.sections[deleting]
-                self.parent.render_image()
-                self.parent.layerpanel.load()
+            if 0 <= deleting < number:
+                self.parent.del_section(deleting)
                 self.enabling()
             else:
                 messagebox.showerror('Invalid', 'Invalid layer number entered')
                 self.del_layer()
 
     def raise_layer(self):
-        "Add a default valued layer to the layer panel."
+        "Swap a designated layer with its nearest upwards neighbor."
 
-        sections = self.parent.sections
-        prompt = 'Layer to be raised (2 - ' + str(len(sections)) + ')'
+        number = self.parent.len_sections()
+        prompt = 'Layer to be raised (2 - ' + str(number) + ')'
         raising = simpledialog.askinteger('Raise Layer', prompt)
         if raising:
             raising -= 1
-            if 1 <= raising < len(sections):
-                sections[raising], sections[raising - 1] = sections[raising - 1], sections[raising]
-                self.parent.render_image()
-                self.parent.layerpanel.load()
+            if 1 <= raising < number:
+                self.parent.swap_sections(raising, raising - 1)
             else:
                 messagebox.showerror('Invalid', 'Invalid layer number entered')
                 self.raise_layer()
 
     def lower_layer(self):
-        "Add a default valued layer to the layer panel."
+        "Swap a designated layer with its nearest downwards neighbor."
 
-        sections = self.parent.sections
-        prompt = 'Layer to be lowered (1 - ' + str(len(sections) - 1) + ')'
+        number = self.parent.len_sections()
+        prompt = 'Layer to be lowered (1 - ' + str(number - 1) + ')'
         lowering = simpledialog.askinteger('Lower Layer', prompt)
         if lowering:
             lowering -= 1
-            if 0 <= lowering < len(sections) - 1:
-                sections[lowering], sections[lowering + 1] = sections[lowering + 1], sections[lowering]
-                self.parent.render_image()
-                self.parent.layerpanel.load()
+            if 0 <= lowering < number - 1:
+                self.parent.swap_sections(lowering, lowering + 1)
             else:
                 messagebox.showerror('Invalid', 'Invalid layer number entered')
                 self.lower_layer()
@@ -393,6 +384,7 @@ class Dipsab(tkinter.Tk):
         self.style.configure('My.TFrame', background='#777777')
 #        self.style.configure('My.TButton', background='#111111')
 
+        #TODO: Add and implement dirty bit + visualization
         self.sections = []
         self.exportpath = ''
         self.filename = ''
@@ -481,7 +473,7 @@ class Dipsab(tkinter.Tk):
                 self.sections = configuration[1]
                 self.set_filename(_name)
                 self.exportpath = self.props['exportpath']
-            self.layerpanel.load()
+            self.layerpanel.load(len(self.sections))
             self.toolbar.enabling()
             self.render_image()
         else:
@@ -602,6 +594,39 @@ class Dipsab(tkinter.Tk):
         self.render_exportable()
         self.statusbar.display_props(self.props)
         self.mainframe.show_image(self.create_image())
+
+    def len_sections(self):
+        "Return the number of sections. Included to limit direct access of class variable."
+
+        return len(self.sections)
+
+    def del_section(self, number):
+        "Delete a section from the current sequence."
+
+        del self.sections[number]
+        self.render_image()
+        self.layerpanel.load(len(self.sections))
+
+    def add_section(self):
+        "Append a section to the current sequence."
+
+        number = len(self.sections)
+        self.sections.append(DEFAULT_SECTION)
+        self.layerpanel.load(number + 1)
+        self.layerpanel.config_layer(number)
+
+    def swap_sections(self, one, other):
+        "Swap 2 layers of the image and render the result."
+
+        self.sections[one], self.sections[other] = self.sections[other], self.sections[one]
+        self.render_image()
+
+    def assign_section(self, number, configuration):
+        "Assign section layer configuration values."
+
+        for k in configuration:
+            self.sections[number][k] = configuration[k]
+        self.render_image()
 
 ###############################################################################
 
