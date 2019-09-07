@@ -103,18 +103,22 @@ def dirim(cl_args):
         total_width = sum(widths) + hpad * (len(widths) - 1)
         offset_x = (max_width - total_width) // 2
 
-        result_row = Image.new('RGB', (max_width, max_height), color=cl_args['bgcolor'])
+        result_row = Image.new('RGBA', (max_width, max_height), color=cl_args['bgcolor'])
         images = map(Image.open, row)
-        for img in images:
-            result_row.paste(img, (offset_x, 0))
-            offset_x += hpad + img.size[0]
+        for img in row:
+            showing = Image.open(img).convert('RGBA')
+            bbox = (offset_x, 0, offset_x + showing.size[0], showing.size[1])
+            cropped = result_row.crop(bbox)
+            showing = Image.composite(showing, cropped, mask=showing)
+            result_row.paste(showing, (offset_x, 0))
+            offset_x += hpad + showing.size[0]
 
         layers.append(result_row)
         total_height += result_row.size[1]
 
     layers.reverse()
     offset_y = 0
-    final_image = Image.new('RGB', (max_width, total_height), color=cl_args['bgcolor'])
+    final_image = Image.new('RGBA', (max_width, total_height), color=cl_args['bgcolor'])
     for row in layers:
         final_image.paste(row, (0, offset_y))
         offset_y += vpad + row.size[1]
