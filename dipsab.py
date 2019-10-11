@@ -25,6 +25,7 @@ DEFAULT_PROPS['vsize'] = 1080
 DEFAULT_PROPS['header'] = 0
 DEFAULT_PROPS['footer'] = 0
 DEFAULT_PROPS['exportpath'] = ''
+DEFAULT_PROPS['sensitive'] = 1
 
 def aspect_rationate(available, candidate):
     "Compute height and width retainining aspect ratio constrained by available space."
@@ -51,7 +52,7 @@ def ok_dialog(parent, dialog_title, dialog_text):
 ###############################################################################
 
 class PropertiesDialog(simpledialog.Dialog):
-    "Modal dialog of each layer's content and appearance attributes."
+    "Dialog for configuration of image."
 
     def __init__(self, master, config, *args, **kwargs):
         self.bgcolor = config['bgcolor']
@@ -77,6 +78,10 @@ class PropertiesDialog(simpledialog.Dialog):
         self.footer = config['footer']
         self.footer_var = tkinter.IntVar()
         self.footer_var.set(self.footer)
+
+        self.sensitive = config['sensitive']
+        self.sensitive_var = tkinter.IntVar()
+        self.sensitive_var.set(self.sensitive)
 
         simpledialog.Dialog.__init__(self, master,
                                      title=DISPLAY_NAME + " Properties",
@@ -109,6 +114,10 @@ class PropertiesDialog(simpledialog.Dialog):
         self.cb2 = tkinter.Checkbutton(master, text='Last Layer', variable=self.footer_var)
         self.cb2.grid(row=5, column=1, sticky='w')
 
+        tkinter.Label(master, text="Sorting").grid(row=6)
+        self.cb1 = tkinter.Checkbutton(master, text='Case Sensitive', variable=self.sensitive_var)
+        self.cb1.grid(row=6, column=1, sticky='w')
+
         return None
 
     def choose_color(self):
@@ -125,6 +134,7 @@ class PropertiesDialog(simpledialog.Dialog):
         self.vsize = self.vsize_var.get()
         self.header = self.header_var.get()
         self.footer = self.footer_var.get()
+        self.sensitive = self.sensitive_var.get()
 
 ###############################################################################
 
@@ -531,6 +541,7 @@ class Dipsab(tkinter.Tk):
             self.props['vsize'] = new_props.vsize
             self.props['header'] = new_props.header
             self.props['footer'] = new_props.footer
+            self.props['sensitive'] = new_props.sensitive
             self.render_image()
 
     def set_filename(self, newname):
@@ -552,6 +563,7 @@ class Dipsab(tkinter.Tk):
         args = {}
         args['bgcolor'] = self.props['bgcolor']
         args['width'] = self.props['hsize'] - 2 * self.props['bordersize']
+        args['sensitive'] = self.props['sensitive']
         for layer in self.sections:
             args['hpad'] = layer['hpad']
             args['vpad'] = layer['vpad']

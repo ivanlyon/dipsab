@@ -38,7 +38,7 @@ def dir_path(path):
 
 ###############################################################################
 
-def rows_filenames(input_dir, max_width, hpad):
+def rows_filenames(input_dir, max_width, hpad, sensitive):
     "Create a sequence of rows each containing filenames."
 
     row_height = 0
@@ -55,8 +55,10 @@ def rows_filenames(input_dir, max_width, hpad):
                 if filename.endswith(i):
                     filepaths.append(os.path.join(root, filename))
 
-    filepaths = sorted(filepaths)
-    filepaths.reverse()
+    if sensitive:
+        filepaths = sorted(filepaths, reverse=True)
+    else:
+        filepaths = sorted(filepaths, key=str.lower, reverse=True)
 
     for file_path in filepaths:
         picture = Image.open(file_path)
@@ -90,9 +92,10 @@ def dirim(cl_args):
     max_width = cl_args['width']
     hpad = cl_args['hpad']
     vpad = cl_args['vpad']
+    sensitive = cl_args['sensitive']
 
     layers = []
-    row_images = rows_filenames(cl_args['input'], max_width, hpad)
+    row_images = rows_filenames(cl_args['input'], max_width, hpad, sensitive)
 
     total_height = vpad * (len(row_images) - 1)
     for row in row_images:
@@ -141,6 +144,8 @@ if __name__ == '__main__':
                         default=0)
     parser.add_argument("--hpad", help="Horizontal pixels between images", type=int,
                         default=0)
+    parser.add_argument("--sensitive", help="File name sorting case sensitivity", type=int,
+                        default=1)
 
     # Specify output of "--version"
     parser.add_argument(
