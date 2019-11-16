@@ -384,6 +384,44 @@ class ToolBar(ttk.Frame):
 
 ###############################################################################
 
+class RecentFiles():
+    "Store and manage list of recent files"
+
+    def __init__(self):
+        self.file_names = []
+        self.load_config()
+
+    def load_config(self):
+        "Load user configuration file"
+
+        if os.path.isfile(CONFIG_NAME):
+            with open(CONFIG_NAME) as json_file:
+                configuration = json.load(json_file)
+                self.file_names = configuration[0]
+
+    def update(self, candidate):
+        "Update the list of recent files"
+
+        if candidate in self.file_names:
+            self.file_names.remove(candidate)
+
+        self.file_names = [candidate] + self.file_names
+        if len(self.file_names) > CONFIG_RECENTS:
+            self.file_names.pop()
+
+        with open(CONFIG_NAME, "w") as file:
+            json.dump([self.file_names], file, indent=4)
+
+    def top(self):
+        "Return 1st available redent file name if possible"
+
+        if self.file_names[0] and os.path.isfile(self.file_names[0]):
+            return self.file_names[0]
+
+        return None
+
+###############################################################################
+
 class Dipsab(tkinter.Tk):
     "Top level class over all the functionality of this program."
 
@@ -396,9 +434,6 @@ class Dipsab(tkinter.Tk):
 #        self.style.configure('TFrame', background='#666666')
         self.style.configure('My.TFrame', background='#777777')
 #        self.style.configure('My.TButton', background='#111111')
-
-        self.recents = []
-        self.load_config()
 
         #TODO: Add and implement dirty bit + visualization
         self.sections = []
@@ -420,7 +455,8 @@ class Dipsab(tkinter.Tk):
         self.mainframe.pack(side='right', fill='y')
 
         self.recentmenu = tkinter.Menu(self, tearoff=False)
-        self.add_recents()
+        self.recent_files = RecentFiles()
+        self.add_recent_files()
 
         self.menubar = tkinter.Menu(self)
         self.filemenu = tkinter.Menu(self.menubar, tearoff=False)
@@ -449,6 +485,9 @@ class Dipsab(tkinter.Tk):
 
         self.render_exportable()
         self.statusbar.display_props(self.props)
+
+        if self.recent_files.top():
+            self.load_file(self.recent_files.top()) # Autoload
 
     def render_exportable(self):
         "Toggle state of export path according to existence of variable content."
@@ -490,20 +529,18 @@ class Dipsab(tkinter.Tk):
         else:
             print('No file selected')
 
-    def load_config(self):
-        "Load user configuration file"
+    def update_recents(self, candidate):
+        "Update recent files cascade menu"
 
-        if os.path.isfile(CONFIG_NAME):
-            with open(CONFIG_NAME) as json_file:
-                configuration = json.load(json_file)
-                self.recents = configuration[0]
+        self.recentmenu.delete(0, len(self.recent_files.file_names) - 1)
+        self.recent_files.update(candidate)
+        self.add_recent_files()
 
-    def clear_recents(self, number):
-        self.recentmenu.delete(0, number -1)
+    def add_recent_files(self):
+        "Add file names to recent file cascade menu"
 
-    def add_recents(self):
-        for r in self.recents:
-            self.recentmenu.add_command(label=r, command=lambda name=r: self.load_file(name))
+        for rfn in self.recent_files.file_names:
+            self.recentmenu.add_command(label=rfn, command=lambda name=rfn: self.load_file(name))
 
     def load_file(self, load_file_name):
         "Load file and populate GUI"
@@ -518,9 +555,7 @@ class Dipsab(tkinter.Tk):
         self.layerpanel.load(len(self.sections))
         self.toolbar.enabling()
         self.render_image()
-
-        if load_file_name in self.recents:
-            self.update_recents(load_file_name)
+        self.update_recents(load_file_name)
 
     def save_as_dialog(self):
         "Standard asksaveasfilename() invocation and result handling."
@@ -543,20 +578,6 @@ class Dipsab(tkinter.Tk):
             self.update_recents(self.filename)
         else:
             self.save_as_dialog()
-
-    def update_recents(self, filename):
-        self.recentmenu.delete(0, len(self.recents) - 1)
-
-        if filename in self.recents:
-            self.recents.remove(filename)
-            
-        self.recents = [self.filename] + self.recents
-        if len(self.recents) > CONFIG_RECENTS:
-            self.recents.pop()
-
-        with open(CONFIG_NAME, "w") as file:
-            json.dump([self.recents], file, indent=4)
-        self.add_recents()
 
     def export_as_dialog(self):
         "Standard asksaveasfilename() invocation and result handling."
