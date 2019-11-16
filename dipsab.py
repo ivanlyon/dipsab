@@ -27,6 +27,9 @@ DEFAULT_PROPS['footer'] = 0
 DEFAULT_PROPS['exportpath'] = ''
 DEFAULT_PROPS['sensitive'] = 1
 
+CONFIG_NAME = ".dipsab"
+CONFIG_RECENTS = 5
+
 def aspect_rationate(available, candidate):
     "Compute height and width retainining aspect ratio constrained by available space."
 
@@ -394,6 +397,9 @@ class Dipsab(tkinter.Tk):
         self.style.configure('My.TFrame', background='#777777')
 #        self.style.configure('My.TButton', background='#111111')
 
+        self.recents = []
+        self.load_config()
+
         #TODO: Add and implement dirty bit + visualization
         self.sections = []
         self.exportpath = ''
@@ -413,10 +419,14 @@ class Dipsab(tkinter.Tk):
         self.mainframe = MainFrame(self)
         self.mainframe.pack(side='right', fill='y')
 
+        self.recentmenu = tkinter.Menu(self, tearoff=False)
+        self.add_recents()
+
         self.menubar = tkinter.Menu(self)
         self.filemenu = tkinter.Menu(self.menubar, tearoff=False)
         self.filemenu.add_command(label='New', command=self.new_dialog)
         self.filemenu.add_command(label='Open', command=self.open_dialog)
+        self.filemenu.add_cascade(label="Recent Files", menu=self.recentmenu)
         self.filemenu.add_command(label='Save', command=self.save)
         self.filemenu.add_command(label='Save As', command=self.save_as_dialog)
         self.filemenu.add_separator()
@@ -476,18 +486,41 @@ class Dipsab(tkinter.Tk):
 
         _name = filedialog.askopenfilename()
         if isinstance(_name, str):
-            self.layerpanel.clear()
-            with open(_name) as json_file:
-                configuration = json.load(json_file)
-                self.props = configuration[0]
-                self.sections = configuration[1]
-                self.set_filename(_name)
-                self.exportpath = self.props['exportpath']
-            self.layerpanel.load(len(self.sections))
-            self.toolbar.enabling()
-            self.render_image()
+            self.load_file(_name)
         else:
             print('No file selected')
+
+    def load_config(self):
+        "Load user configuration file"
+
+        if os.path.isfile(CONFIG_NAME):
+            with open(CONFIG_NAME) as json_file:
+                configuration = json.load(json_file)
+                self.recents = configuration[0]
+
+    def clear_recents(self, number):
+        self.recentmenu.delete(0, number -1)
+
+    def add_recents(self):
+        for r in self.recents:
+            self.recentmenu.add_command(label=r, command=lambda name=r: self.load_file(name))
+
+    def load_file(self, load_file_name):
+        "Load file and populate GUI"
+
+        self.layerpanel.clear()
+        with open(load_file_name) as json_file:
+            configuration = json.load(json_file)
+            self.props = configuration[0]
+            self.sections = configuration[1]
+            self.set_filename(load_file_name)
+            self.exportpath = self.props['exportpath']
+        self.layerpanel.load(len(self.sections))
+        self.toolbar.enabling()
+        self.render_image()
+
+        if load_file_name in self.recents:
+            self.update_recents(load_file_name)
 
     def save_as_dialog(self):
         "Standard asksaveasfilename() invocation and result handling."
@@ -506,8 +539,24 @@ class Dipsab(tkinter.Tk):
             configuration.append(self.sections)
             with open(self.filename, "w") as file:
                 json.dump(configuration, file, indent=4)
+
+            self.update_recents(self.filename)
         else:
             self.save_as_dialog()
+
+    def update_recents(self, filename):
+        self.recentmenu.delete(0, len(self.recents) - 1)
+
+        if filename in self.recents:
+            self.recents.remove(filename)
+            
+        self.recents = [self.filename] + self.recents
+        if len(self.recents) > CONFIG_RECENTS:
+            self.recents.pop()
+
+        with open(CONFIG_NAME, "w") as file:
+            json.dump([self.recents], file, indent=4)
+        self.add_recents()
 
     def export_as_dialog(self):
         "Standard asksaveasfilename() invocation and result handling."
