@@ -25,7 +25,8 @@ DEFAULT_PROPS['vsize'] = 1080
 DEFAULT_PROPS['header'] = 0
 DEFAULT_PROPS['footer'] = 0
 DEFAULT_PROPS['exportpath'] = ''
-DEFAULT_PROPS['sensitive'] = 1
+DEFAULT_PROPS['case'] = 1
+DEFAULT_PROPS['articles'] = 1
 
 CONFIG_NAME = ".dipsab"
 CONFIG_RECENTS = 5
@@ -82,9 +83,13 @@ class PropertiesDialog(simpledialog.Dialog):
         self.footer_var = tkinter.IntVar()
         self.footer_var.set(self.footer)
 
-        self.sensitive = config['sensitive']
-        self.sensitive_var = tkinter.IntVar()
-        self.sensitive_var.set(self.sensitive)
+        self.case = config['case']
+        self.case_var = tkinter.IntVar()
+        self.case_var.set(self.case)
+
+        self.articles = config['articles']
+        self.articles_var = tkinter.IntVar()
+        self.articles_var.set(self.articles)
 
         simpledialog.Dialog.__init__(self, master,
                                      title=DISPLAY_NAME + " Properties",
@@ -118,8 +123,12 @@ class PropertiesDialog(simpledialog.Dialog):
         self.cb2.grid(row=5, column=1, sticky='w')
 
         tkinter.Label(master, text="Sorting").grid(row=6)
-        self.cb1 = tkinter.Checkbutton(master, text='Case Sensitive', variable=self.sensitive_var)
-        self.cb1.grid(row=6, column=1, sticky='w')
+        self.cb3 = tkinter.Checkbutton(master, text='Case Sensitive', variable=self.case_var)
+        self.cb3.grid(row=6, column=1, sticky='w')
+
+        tkinter.Label(master, text=" ").grid(row=7)
+        self.cb4 = tkinter.Checkbutton(master, text='Include Articles (A/An/The)', variable=self.articles_var)
+        self.cb4.grid(row=7, column=1, sticky='w')
 
         return None
 
@@ -137,7 +146,8 @@ class PropertiesDialog(simpledialog.Dialog):
         self.vsize = self.vsize_var.get()
         self.header = self.header_var.get()
         self.footer = self.footer_var.get()
-        self.sensitive = self.sensitive_var.get()
+        self.case = self.case_var.get()
+        self.articles = self.articles_var.get()
 
 ###############################################################################
 
@@ -611,7 +621,8 @@ class Dipsab(tkinter.Tk):
             self.props['vsize'] = new_props.vsize
             self.props['header'] = new_props.header
             self.props['footer'] = new_props.footer
-            self.props['sensitive'] = new_props.sensitive
+            self.props['case'] = new_props.case
+            self.props['articles'] = new_props.articles
             self.render_image()
 
     def set_filename(self, newname):
@@ -633,7 +644,8 @@ class Dipsab(tkinter.Tk):
         args = {}
         args['bgcolor'] = self.props['bgcolor']
         args['width'] = self.props['hsize'] - 2 * self.props['bordersize']
-        args['sensitive'] = self.props['sensitive']
+        args['case'] = self.props['case']
+        args['articles'] = self.props['articles']
         for layer in self.sections:
             args['hpad'] = layer['hpad']
             args['vpad'] = layer['vpad']

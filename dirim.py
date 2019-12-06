@@ -19,6 +19,7 @@ Output:
 """
 
 import os
+import re
 import argparse
 from PIL import Image
 
@@ -38,13 +39,13 @@ def dir_path(path):
 
 ###############################################################################
 
-def rows_filenames(input_dir, max_width, hpad, sensitive):
-    "Create a sequence of rows each containing filenames."
+def sorted_filepaths(input_dir, case_sensitive, articles):
 
-    row_height = 0
-    row_width = max_width
-    row_images = []
-    rowed = []
+    lower_articles = '|'.join(('a', 'an', 'the'))
+    cased_articles = '|'.join(('A', 'An', 'The', 'AN', 'THE')) + '|' + lower_articles
+
+    lower_lambda = lambda x: re.sub("^(" + lower_articles + ") ","",os.path.basename(x).lower())
+    cased_lambda = lambda x: re.sub("^(" + cased_articles + ") ","",os.path.basename(x))
 
     filepaths = []
     for root, folders, files in os.walk(input_dir):
@@ -55,12 +56,28 @@ def rows_filenames(input_dir, max_width, hpad, sensitive):
                 if filename.endswith(i):
                     filepaths.append(os.path.join(root, filename))
 
-    if sensitive:
+    if case_sensitive and articles:
         filepaths = sorted(filepaths, reverse=True)
-    else:
+    elif case_sensitive:
+        filepaths = sorted(filepaths, key=cased_lambda, reverse=True)
+    elif articles:
         filepaths = sorted(filepaths, key=str.lower, reverse=True)
+    else:
+        filepaths = sorted(filepaths, key=lower_lambda, reverse=True)
 
-    for file_path in filepaths:
+    return filepaths
+
+###############################################################################
+
+def rows_filenames(input_dir, max_width, hpad, case_sensitive, articles):
+    "Create a sequence of rows each containing filenames."
+
+    row_height = 0
+    row_width = max_width
+    row_images = []
+    rowed = []
+
+    for file_path in sorted_filepaths(input_dir, case_sensitive, articles):
         picture = Image.open(file_path)
         img_width, img_height = picture.size
         row_height = max(row_height, img_height)
@@ -92,10 +109,11 @@ def dirim(cl_args):
     max_width = cl_args['width']
     hpad = cl_args['hpad']
     vpad = cl_args['vpad']
-    sensitive = cl_args['sensitive']
+    case_sensitive = cl_args['case']
+    articles = cl_args['articles']
 
     layers = []
-    row_images = rows_filenames(cl_args['input'], max_width, hpad, sensitive)
+    row_images = rows_filenames(cl_args['input'], max_width, hpad, case_sensitive, articles)
 
     total_height = vpad * (len(row_images) - 1)
     for row in row_images:
@@ -144,7 +162,9 @@ if __name__ == '__main__':
                         default=0)
     parser.add_argument("--hpad", help="Horizontal pixels between images", type=int,
                         default=0)
-    parser.add_argument("--sensitive", help="File name sorting case sensitivity", type=int,
+    parser.add_argument("--case", help="File name sorting case sensitivity", type=int,
+                        default=1)
+    parser.add_argument("--articles", help="File name sorting articles sensitivity", type=int,
                         default=1)
 
     # Specify output of "--version"
