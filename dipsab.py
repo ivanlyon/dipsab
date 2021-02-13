@@ -135,7 +135,7 @@ class PropertiesDialog(simpledialog.Dialog):
     def choose_color(self):
         "Browse for directory to be depicted as a layer in the shadowbox"
 
-        (triple, hexstr) = colorchooser.askcolor(self.bgcolor)
+        (_triple, hexstr) = colorchooser.askcolor(self.bgcolor)
         if hexstr:
             self.bgcolor_var.set(hexstr)
 
@@ -313,7 +313,7 @@ class MainFrame(ttk.Frame):
 ###############################################################################
 
 class ToolBar(ttk.Frame):
-    "Sample toolbar provided by cookiecutter switch."
+    "Buttons for development of layer configurations."
 
     def __init__(self, parent):
         ttk.Frame.__init__(self, parent, style='My.TFrame')
