@@ -44,10 +44,10 @@ def sorted_filepaths(input_dir, case_sensitive, articles):
     lower_articles = '|'.join(('a', 'an', 'the'))
     cased_articles = '|'.join(('A', 'An', 'The', 'AN', 'THE')) + '|' + lower_articles
 
-    basic_lambda = lambda x: os.path.splitext(x)[0]
-    lower_lambda = lambda x: os.path.splitext(x)[0].lower()
-    artlo_lambda = lambda x: re.sub("^(" + lower_articles + ") ","",os.path.splitext(x)[0].lower())
-    cased_lambda = lambda x: re.sub("^(" + cased_articles + ") ","",os.path.splitext(x)[0])
+    basic_lambda = lambda x: os.path.basename(os.path.splitext(x)[0])
+    lower_lambda = lambda x: os.path.basename(os.path.splitext(x)[0].lower())
+    artlo_lambda = lambda x: re.sub("^(" + lower_articles + ") ","",os.path.basename(os.path.splitext(x)[0].lower()))
+    cased_lambda = lambda x: re.sub("^(" + cased_articles + ") ","",os.path.basename(os.path.splitext(x)[0]))
 
     filepaths = []
     for root, folders, files in os.walk(input_dir):
@@ -63,9 +63,9 @@ def sorted_filepaths(input_dir, case_sensitive, articles):
     elif case_sensitive:
         filepaths = sorted(filepaths, key=cased_lambda, reverse=True)
     elif articles:
-        filepaths = sorted(filepaths, key=artlo_lambda, reverse=True)
-    else:
         filepaths = sorted(filepaths, key=lower_lambda, reverse=True)
+    else:
+        filepaths = sorted(filepaths, key=artlo_lambda, reverse=True)
 
     return filepaths
 
