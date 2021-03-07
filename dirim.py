@@ -130,10 +130,11 @@ def dirim(cl_args):
         images = map(Image.open, row)
         for img in row:
             showing = Image.open(img).convert('RGBA')
-            bbox = (offset_x, 0, offset_x + showing.size[0], showing.size[1])
+            offset_y = (max_height - showing.size[1]) // 2
+            bbox = (offset_x, offset_y, offset_x + showing.size[0], offset_y + showing.size[1])
             cropped = result_row.crop(bbox)
             showing = Image.composite(showing, cropped, mask=showing)
-            result_row.paste(showing, (offset_x, 0))
+            result_row.paste(showing, (offset_x, offset_y))
             offset_x += hpad + showing.size[0]
 
         layers.append(result_row)
